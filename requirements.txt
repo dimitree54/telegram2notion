@@ -1,0 +1,7 @@
+notion-client
+openai~=1.23.6
+pdfplumber~=0.11.0
+pandas~=2.2.2
+moviepy~=1.0.3
+pydantic~=2.7.1
+python-dotenv~=1.0.1
