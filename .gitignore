@@ -1,3 +1,3 @@
 /.env
 /google_drive_creds.json
-/.idea/*
+.idea/
