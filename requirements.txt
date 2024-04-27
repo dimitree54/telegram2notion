@@ -5,3 +5,7 @@ pandas~=2.2.2
 moviepy~=1.0.3
 pydantic~=2.7.1
 python-dotenv~=1.0.1
+
+google-auth
+google-api-python-client
+aiofiles~=23.2.1
