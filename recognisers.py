@@ -1,29 +1,29 @@
+import asyncio
 import base64
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import openai
 import pdfplumber
 import pandas as pd
 from moviepy.editor import VideoFileClip
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 
 class FileRecogniser(ABC):
     @abstractmethod
-    def recognise(self, file_path: Path) -> str:  # todo make everything async
+    async def recognise(self, file_path: Path) -> str:
         pass
 
 
 class WhisperAudioRecogniser(FileRecogniser):
     def __init__(self):
-        self.client = OpenAI()
+        self.client = AsyncOpenAI()
 
-    def recognise(self, file_path: Path) -> str:
+    async def recognise(self, file_path: Path) -> str:
         """Supported formats .mp3, .mp4, .mpeg, .mpga, .m4a, .wav, .webm"""
         with open(file_path, "rb") as audio_file:
-            response = self.client.audio.transcriptions.create(
+            response = await self.client.audio.transcriptions.create(
                 model="whisper-1",
                 file=audio_file,
                 response_format="text"
@@ -33,13 +33,13 @@ class WhisperAudioRecogniser(FileRecogniser):
 
 class VisionGPTImageRecogniser(FileRecogniser):
     def __init__(self):
-        self.client = OpenAI()
+        self.client = AsyncOpenAI()
 
-    def recognise(self, file_path: Path) -> str:
+    async def recognise(self, file_path: Path) -> str:
         """Supported formats .png .jpeg and .jpg, .webp, .gif"""
         with open(file_path, "rb") as image_file:
             base64_image = base64.b64encode(image_file.read()).decode('utf-8')
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
             model="gpt-4-vision-preview",
             temperature=0.0,
             messages=[
@@ -67,14 +67,18 @@ class SoundOnlyVideoRecogniser(FileRecogniser):
     def __init__(self, audio_recogniser: FileRecogniser):
         self.audio_recogniser = audio_recogniser
 
-    def recognise(self, file_path: Path) -> str:
+    async def recognise(self, file_path: Path) -> str:
         """Supported video formats include MP4, AVI, and MKV."""
-        with VideoFileClip(str(file_path)) as video:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
-                audio_path = Path(temp_audio.name)
-                video.audio.write_audiofile(audio_path)
-        result = self.audio_recogniser.recognise(audio_path)
-        audio_path.unlink()
+        temp_audio_path = file_path.with_suffix('.mp3')
+
+        def extract_audio():
+            with VideoFileClip(str(file_path)) as video:
+                video.audio.write_audiofile(str(temp_audio_path))
+
+        await asyncio.get_running_loop().run_in_executor(None, extract_audio)
+        result = await self.audio_recogniser.recognise(temp_audio_path)
+        temp_audio_path.unlink()
+
         return result
 
 
@@ -82,7 +86,7 @@ class PDFPlumberFileRecogniser(FileRecogniser):
     def __init__(self, image_recogniser: FileRecogniser):
         self.image_recogniser = image_recogniser
 
-    def recognise(self, file_path: Path) -> str:
+    async def recognise(self, file_path: Path) -> str:
         all_text = 'PDF document: ' + file_path.name + '\n'
         with pdfplumber.open(file_path) as pdf:
             for page_index, page in enumerate(pdf.pages):
@@ -107,7 +111,7 @@ class PDFPlumberFileRecogniser(FileRecogniser):
                         image_path = Path(tmp.name)
                         page.to_image().original.crop((image["x0"], image["top"], image["x1"], image["bottom"])).save(
                             image_path, format="PNG")
-                        recognized_text = self.image_recogniser.recognise(image_path)
+                        recognized_text = await self.image_recogniser.recognise(image_path)
                     all_text += f"{image_index + 1}: {recognized_text}\n"
 
         return all_text
@@ -136,11 +140,5 @@ class RedirectingFileRecogniser(FileRecogniser):
 
 class URLRecogniser(ABC):
     @abstractmethod
-    def recognise(self, url: str) -> str:
+    async def recognise(self, url: str) -> str:  # todo implement
         pass
-
-
-# test mp3 path: /Users/dmitryr/source/tg_lila_bot/tests/data/123.mp3
-# test mp4 path: /Users/dmitryr/Downloads/test.mp4
-# test pdf path: /Users/dmitryr/Downloads/test.pdf
-# test png path: /Users/dmitryr/Downloads/test.webp
