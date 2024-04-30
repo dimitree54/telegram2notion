@@ -6,6 +6,14 @@ moviepy~=1.0.3
 pydantic~=2.7.1
 python-dotenv~=1.0.1
 
+python-telegram-bot==20.3
+pydub
+
+
 google-auth
 google-api-python-client
+google-cloud-storage
 aiofiles~=23.2.1
+bs4~=0.0.2
+beautifulsoup4~=4.12.3
+Scrapy~=2.11.1
