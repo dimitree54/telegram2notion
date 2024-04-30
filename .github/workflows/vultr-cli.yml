@@ -24,7 +24,7 @@ jobs:
           
           sudo apt-get update && apt-get upgrade -y
           sudo apt-get install -y git python3-venv ffmpeg
-          systemctl stop $FRIEND_SERVICE_NAME || true
+          systemctl stop SERVICE_NAME || true
           
           rm -rf $REPO_DIR
           git clone -b ${{ GITHUB.REF_NAME }} https://github.com/dimitree54/telegram2notion.git $REPO_DIR
