@@ -1,13 +1,12 @@
-import asyncio
-import io
 import os
+import uuid
 from abc import ABC, abstractmethod
+from mimetypes import guess_type
 from pathlib import Path
 
 import aiofiles
+from google.cloud import storage
 from google.oauth2 import service_account
-from googleapiclient.discovery import build, Resource  # noqa
-from googleapiclient.http import MediaIoBaseUpload
 
 
 class FileStorage(ABC):
@@ -16,32 +15,21 @@ class FileStorage(ABC):
         pass
 
 
-class GoogleDriveStorage(FileStorage):
-    def __init__(self, service_account_file_path: Path):
-        scopes = ['https://www.googleapis.com/auth/drive.file']
+class GoogleCloudStorage(FileStorage):
+    def __init__(self, service_account_file_path: Path, bucket_name: str):
         creds = service_account.Credentials.from_service_account_file(
-            str(service_account_file_path), scopes=scopes)
-        self.service = build('drive', 'v3', credentials=creds)
+            str(service_account_file_path))
+        self.client = storage.Client(credentials=creds)
+        self.bucket = self.client.bucket(bucket_name)
 
     async def save_and_get_url(self, file_path: Path) -> str:
+        blob_name = str(uuid.uuid4()) + os.path.splitext(file_path.name)[1]
+        blob = self.bucket.blob(blob_name)
+
         async with aiofiles.open(file_path, 'rb') as file_data:
             bytes_data = await file_data.read()
-        file_metadata = {'name': os.path.basename(file_path)}
 
-        def create_file():
-            media = MediaIoBaseUpload(io.BytesIO(bytes_data), mimetype='application/octet-stream')
-            return self.service.files().create(
-                body=file_metadata, media_body=media, fields='id').execute()
-
-        def create_permission(file_id_):
-            permission = {'type': 'anyone', 'role': 'reader'}
-            self.service.permissions().create(
-                fileId=file_id, body=permission).execute()
-            return file_id_
-
-        loop = asyncio.get_running_loop()
-        file = await loop.run_in_executor(None, create_file)
-        file_id = file.get('id')
-        await loop.run_in_executor(None, create_permission, file_id)
-
-        return f"https://drive.google.com/uc?id={file_id}"
+        mime_type = guess_type(file_path)[0] or 'application/octet-stream'
+        blob.upload_from_string(bytes_data, content_type=mime_type)
+        blob.make_public()
+        return blob.public_url
