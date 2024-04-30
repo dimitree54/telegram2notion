@@ -9,6 +9,10 @@ import pandas as pd
 from moviepy.editor import VideoFileClip
 from openai import AsyncOpenAI
 
+import scrapy
+from scrapy.crawler import CrawlerProcess
+from bs4 import BeautifulSoup
+
 
 class FileRecogniser(ABC):
     @abstractmethod
@@ -140,5 +144,28 @@ class RedirectingFileRecogniser(FileRecogniser):
 
 class URLRecogniser(ABC):
     @abstractmethod
-    async def recognise(self, url: str) -> str:  # todo implement
+    async def recognise(self, url: str) -> str:
         pass
+
+
+class WebPageRecogniser(URLRecogniser):
+    async def recognise(self, url: str) -> str:
+        process = CrawlerProcess({'USER_AGENT': 'Mozilla/5.0'})
+        results = []
+
+        class ContentSpider(scrapy.Spider):
+            name = "content_spider"
+
+            def start_requests(self):
+                yield scrapy.Request(url=url, callback=self.parse)
+
+            def parse(self, response):
+                soup = BeautifulSoup(response.body, 'html.parser')
+                for script in soup(["script", "style"]):  # Remove script and style elements
+                    script.extract()
+                text = soup.get_text(separator='\n', strip=True)
+                results.append(text)
+
+        process.crawl(ContentSpider)
+        process.start()  # Blocks here until crawling is finished
+        return '\n'.join(results)
