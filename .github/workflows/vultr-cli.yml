@@ -1,0 +1,49 @@
+name: Deploy to Vultr VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Execute commands over SSH on Vultr VM
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VULTR_VM_HOST }}
+        username: ${{ secrets.VULTR_VM_USERNAME }}
+        key: ${{ secrets.VULTR_VM_SSH_KEY }}
+        password: ${{ secrets.VULTR_VM_PASSWORD }}
+        script: |
+          export SERVICE_NAME=telegram2notion
+          export REPO_DIR=/root/telegram2notion
+          
+          sudo apt-get update && apt-get upgrade -y
+          sudo apt-get install -y git python3-venv ffmpeg
+          systemctl stop $FRIEND_SERVICE_NAME || true
+          
+          rm -rf $REPO_DIR
+          git clone -b ${{ GITHUB.REF_NAME }} https://github.com/dimitree54/telegram2notion.git $REPO_DIR
+          cd $REPO_DIR
+          
+          python3 -m venv venv
+          source venv/bin/activate
+          pip3 install -U pip setuptools wheel
+          pip3 install -r requirements.txt
+          
+          printf '%s\n' '${{ secrets.GOOGLE_CREDENTIALS }}' > $REPO_DIR/google-credentials.json
+          echo TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }} >> $REPO_DIR/.env
+          echo TELEGRAM_USER_ID=${{ secrets.TELEGRAM_USER_ID }} >> $REPO_DIR/.env
+          echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> $REPO_DIR/.env
+          echo NOTION_TOKEN=${{ secrets.NOTION_TOKEN }} >> $REPO_DIR/.env
+          echo NOTION_PARENT_DOCUMENT=${{ secrets.NOTION_PARENT_DOCUMENT }} >> $REPO_DIR/.env
+          echo GOOGLE_APPLICATION_CREDENTIALS=$REPO_DIR/google-credentials.json >> $REPO_DIR/.env
+          
+          cp $REPO_DIR/SERVICE_NAME.service /etc/systemd/system/SERVICE_NAME.service
+          systemctl daemon-reload
+          systemctl enable SERVICE_NAME
+          systemctl start SERVICE_NAME
