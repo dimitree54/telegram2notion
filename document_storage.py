@@ -184,6 +184,9 @@ class RecognisingDocumentsStorage(DocumentsStorage):
         self.audio_recogniser = audio_recogniser
         self.base_doc_storage = base_doc_storage
 
+    async def save_text(self, name: str, text: str):
+        await self.base_doc_storage.save_text(name, text)
+
     async def save_image(self, name: str, image_path: Path, description: Optional[str] = None):
         recognised_description = await self.image_recogniser.recognise(image_path)
         if description:
