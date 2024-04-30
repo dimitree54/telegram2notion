@@ -35,7 +35,7 @@ if __name__ == "__main__":
         url_recogniser=url_recogniser,
     )
     bot = TelegramBot(
-        token=os.getenv("TELEGRAM_BOT_TOKEN"),
+        token=os.getenv("TELEGRAM_TOKEN"),
         user_id=int(os.getenv("TELEGRAM_USER_ID")),
         doc_storage=document_storage
     )

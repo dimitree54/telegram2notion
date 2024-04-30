@@ -1,18 +1,13 @@
-import os
 import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
 from pydub import AudioSegment
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, CallbackContext, filters, CommandHandler
+from telegram.ext import ApplicationBuilder, MessageHandler, CallbackContext, filters
 
-from document_storage import DocumentsStorage, RecognisingDocumentsStorage, NotionDocumentsStorage
-from file_storage import GoogleCloudStorage
-from recognisers import WhisperAudioRecogniser, VisionGPTImageRecogniser, SoundOnlyVideoRecogniser, \
-    PDFPlumberFileRecogniser, WebPageRecogniser, RedirectingFileRecogniser
+from document_storage import DocumentsStorage
 
 
 def ogg_to_mp3(ogg_path, mp3_path):
