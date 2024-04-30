@@ -1,0 +1,11 @@
+[Unit]
+Description=telegram2notion
+
+[Service]
+ExecStart=/root/telegram2notion/venv/bin/python3 /root/telegram2notion/main.py
+Restart=always
+User=root
+Environment=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
+[Install]
+WantedBy=multi-user.target
