@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./path2dream-9a1f361cc66c.json:/app/path2dream-9a1f361cc66c.json:ro
+      - ./user_settings.json:/app/user_settings.json
+    restart: unless-stopped
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/path2dream-9a1f361cc66c.json 

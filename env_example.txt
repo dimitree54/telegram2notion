@@ -1,0 +1,11 @@
+# Telegram Bot Token (get from @BotFather)
+TELEGRAM_TOKEN=your_telegram_bot_token_here
+
+# Notion Integration Token (create at https://www.notion.so/my-integrations)
+NOTION_TOKEN=your_notion_integration_token_here
+
+# Google Cloud Storage credentials file path
+GOOGLE_APPLICATION_CREDENTIALS=path/to/your/gcs-credentials.json
+
+# Note: NOTION_DATABASE_ID and TELEGRAM_USER_ID are no longer needed
+# as the bot now supports multiple users who can register their own database IDs 

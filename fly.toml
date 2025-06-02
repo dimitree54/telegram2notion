@@ -1,0 +1,22 @@
+app = "telegram2notion"
+primary_region = "iad"
+
+[build]
+
+[env]
+  GOOGLE_APPLICATION_CREDENTIALS = "/app/path2dream-9a1f361cc66c.json"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+[processes]
+  app = "uv run python main.py"
+
+[[vm.files]]
+  guest_path = "/app/path2dream-9a1f361cc66c.json"
+  local_path = "./path2dream-9a1f361cc66c.json"
+
+[deploy]
+  max_machines_per_region = 1 

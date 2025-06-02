@@ -1,3 +1,10 @@
 /.env
 /google_drive_creds.json
 .idea/
+path2dream-9a1f361cc66c.json
+*.json
+user_settings.json
+__pycache__/
+*.pyc
+*.pyo
+test_*.json
