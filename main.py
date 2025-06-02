@@ -3,40 +3,30 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from document_storage import RecognisingDocumentsStorage, NotionDocumentsStorage
 from file_storage import GoogleCloudStorage
-from recognisers import WebPageRecogniser, RedirectingFileRecogniser, PDFPlumberFileRecogniser, \
-    SoundOnlyVideoRecogniser, VisionGPTImageRecogniser, WhisperAudioRecogniser
+from user_settings import UserSettings
+from multi_user_document_storage import MultiUserDocumentStorageManager
 from tg import TelegramBot
 
 if __name__ == "__main__":
     load_dotenv()
-    file_storage = GoogleCloudStorage(Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]), "tg2notion")
-    base_document_storage = NotionDocumentsStorage(
-        token=os.environ["NOTION_TOKEN"],
-        parent_document_id=os.environ["NOTION_PARENT_DOCUMENT"],
+    
+    # Initialize file storage
+    file_storage = GoogleCloudStorage(Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]), "yid-tg2notion")
+    
+    # Initialize user settings manager
+    user_settings = UserSettings()
+    
+    # Initialize multi-user document storage manager
+    storage_manager = MultiUserDocumentStorageManager(
+        notion_token=os.environ["NOTION_TOKEN"],
         file_storage=file_storage,
+        user_settings=user_settings
     )
-    audio_recogniser = WhisperAudioRecogniser()
-    image_recogniser = VisionGPTImageRecogniser()
-    video_recogniser = SoundOnlyVideoRecogniser(audio_recogniser)
-    pdf_recogniser = PDFPlumberFileRecogniser(image_recogniser)
-    file_recogniser = RedirectingFileRecogniser(
-        audio_recogniser, image_recogniser, video_recogniser, pdf_recogniser
-    )
-    url_recogniser = WebPageRecogniser()
-    document_storage = RecognisingDocumentsStorage(
-        base_doc_storage=base_document_storage,
-        audio_recogniser=audio_recogniser,
-        image_recogniser=image_recogniser,
-        video_recogniser=video_recogniser,
-        handwriting_recogniser=image_recogniser,
-        file_recogniser=file_recogniser,
-        url_recogniser=url_recogniser,
-    )
+    
+    # Initialize and run bot
     bot = TelegramBot(
         token=os.getenv("TELEGRAM_TOKEN"),
-        user_id=int(os.getenv("TELEGRAM_USER_ID")),
-        doc_storage=document_storage
+        storage_manager=storage_manager
     )
     bot.run_polling()

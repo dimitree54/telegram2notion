@@ -6,7 +6,6 @@ from typing import Dict, List, Optional
 from notion_client import Client
 
 from file_storage import FileStorage
-from recognisers import FileRecogniser, URLRecogniser
 
 
 class DocumentsStorage(ABC):
@@ -38,33 +37,67 @@ class DocumentsStorage(ABC):
         raise NotImplementedError()
 
 
-class NotionDocumentsStorage(DocumentsStorage):
-    def __init__(self, token: str, parent_document_id: str, file_storage: FileStorage):
+class NotionDocumentsStorageBase(DocumentsStorage, ABC):
+    """Base class for Notion document storage with common functionality."""
+    
+    def __init__(self, token: str, file_storage: FileStorage):
         self.file_storage = file_storage
-        self.parent_document_id = parent_document_id
         self.notion_client = Client(auth=token)
 
     def _build_header(self, name: str) -> Dict:
-        return {
-            "parent": {"page_id": self.parent_document_id},
-            "properties": {"title": {"title": [{"text": {"content": name}}]}}
-        }
+        """Build header for page creation. Must be implemented by subclasses."""
+        raise NotImplementedError()
 
     @staticmethod
-    def _build_text_block(text: str) -> Dict:
-        return {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {
-                "rich_text": [{"text": {"content": text}}]
-            }
-        }
+    def _build_text_block(text: str) -> List[Dict]:
+        """
+        Build text blocks for long text, splitting into multiple paragraphs if needed.
+        Notion has a 2000 character limit per paragraph.
+        """
+        if not text:
+            return []
+        
+        max_length = 2000
+        blocks = []
+        
+        # Split text into chunks of max_length, trying to break at word boundaries
+        while len(text) > max_length:
+            # Find the last space within the limit
+            split_pos = text.rfind(' ', 0, max_length)
+            
+            # If no space found, force split at max_length
+            if split_pos == -1:
+                split_pos = max_length
+            
+            chunk = text[:split_pos].strip()
+            if chunk:
+                blocks.append({
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"text": {"content": chunk}}]
+                    }
+                })
+            
+            text = text[split_pos:].strip()
+        
+        # Add the remaining text
+        if text:
+            blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [{"text": {"content": text}}]
+                }
+            })
+        
+        return blocks
 
     def _create_page(self, name: str, children: List[Dict]):
         self.notion_client.pages.create(**self._build_header(name), children=children)
 
     async def save_text(self, name: str, text: str):
-        self._create_page(name, [self._build_text_block(text)])
+        self._create_page(name, self._build_text_block(text))
 
     async def save_image(self, name: str, image_path: Path, description: Optional[str] = None):
         image_url = await self.file_storage.save_and_get_url(image_path)
@@ -80,7 +113,7 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [image_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
     async def save_audio(self, name: str, audio_path: Path, description: Optional[str] = None):
@@ -97,7 +130,7 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [audio_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
     async def save_video(self, name: str, video_path: Path, description: Optional[str] = None):
@@ -114,7 +147,7 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [video_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
     async def save_handwriting(self, name: str, image_path: Path, description: Optional[str] = None):
@@ -131,7 +164,7 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [image_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
     async def save_link(self, name: str, url: str, description: Optional[str] = None):
@@ -144,7 +177,7 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [link_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
     async def save_file(self, name: str, file_path: Path, description: Optional[str] = None):
@@ -161,64 +194,37 @@ class NotionDocumentsStorage(DocumentsStorage):
         }
         children = [file_block]
         if description:
-            children.append(self._build_text_block(description))
+            children.extend(self._build_text_block(description))
         self._create_page(name, children)
 
 
-class RecognisingDocumentsStorage(DocumentsStorage):
-    def __init__(
-            self,
-            base_doc_storage: DocumentsStorage,
-            audio_recogniser: FileRecogniser,
-            image_recogniser: FileRecogniser,
-            video_recogniser: FileRecogniser,
-            handwriting_recogniser: FileRecogniser,
-            file_recogniser: FileRecogniser,
-            url_recogniser: URLRecogniser,
-    ):
-        self.video_recogniser = video_recogniser
-        self.image_recogniser = image_recogniser
-        self.handwriting_recogniser = handwriting_recogniser
-        self.file_recogniser = file_recogniser
-        self.url_recogniser = url_recogniser
-        self.audio_recogniser = audio_recogniser
-        self.base_doc_storage = base_doc_storage
+class NotionPageDocumentsStorage(NotionDocumentsStorageBase):
+    """Notion storage that creates child pages under a parent page."""
+    
+    def __init__(self, token: str, parent_page_id: str, file_storage: FileStorage):
+        super().__init__(token, file_storage)
+        self.parent_page_id = parent_page_id
 
-    async def save_text(self, name: str, text: str):
-        await self.base_doc_storage.save_text(name, text)
+    def _build_header(self, name: str) -> Dict:
+        return {
+            "parent": {"page_id": self.parent_page_id},
+            "properties": {"title": {"title": [{"text": {"content": name}}]}}
+        }
 
-    async def save_image(self, name: str, image_path: Path, description: Optional[str] = None):
-        recognised_description = await self.image_recogniser.recognise(image_path)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_image(name, image_path, recognised_description)
 
-    async def save_audio(self, name: str, audio_path: Path, description: Optional[str] = None):
-        recognised_description = await self.audio_recogniser.recognise(audio_path)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_audio(name, audio_path, recognised_description)
+class NotionDatabaseDocumentsStorage(NotionDocumentsStorageBase):
+    """Notion storage that creates pages in a database."""
+    
+    def __init__(self, token: str, database_id: str, file_storage: FileStorage):
+        super().__init__(token, file_storage)
+        self.database_id = database_id
 
-    async def save_video(self, name: str, video_path: Path, description: Optional[str] = None):
-        recognised_description = await self.video_recogniser.recognise(video_path)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_video(name, video_path, recognised_description)
-
-    async def save_handwriting(self, name: str, image_path: Path, description: Optional[str] = None):
-        recognised_description = await self.handwriting_recogniser.recognise(image_path)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_handwriting(name, image_path, recognised_description)
-
-    async def save_link(self, name: str, url: str, description: Optional[str] = None):
-        recognised_description = await self.url_recogniser.recognise(url)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_link(name, url, recognised_description)
-
-    async def save_file(self, name: str, file_path: Path, description: Optional[str] = None):
-        recognised_description = await self.file_recogniser.recognise(file_path)
-        if description:
-            recognised_description += '\n\n' + description
-        await self.base_doc_storage.save_file(name, file_path, recognised_description)
+    def _build_header(self, name: str) -> Dict:
+        return {
+            "parent": {"database_id": self.database_id},
+            "properties": {
+                "Name": {
+                    "title": [{"text": {"content": name}}]
+                }
+            }
+        }

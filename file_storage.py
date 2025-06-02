@@ -3,6 +3,7 @@ import uuid
 from abc import ABC, abstractmethod
 from mimetypes import guess_type
 from pathlib import Path
+from datetime import timedelta
 
 import aiofiles
 from google.cloud import storage
@@ -31,5 +32,12 @@ class GoogleCloudStorage(FileStorage):
 
         mime_type = guess_type(file_path)[0] or 'application/octet-stream'
         blob.upload_from_string(bytes_data, content_type=mime_type)
-        blob.make_public()
-        return blob.public_url
+        
+        # Instead of making public (which requires ACL), generate a signed URL
+        # This URL will be valid for 7 days - adjust as needed
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(days=7),
+            method="GET",
+        )
+        return signed_url
