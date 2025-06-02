@@ -1,5 +1,5 @@
 app = "telegram2notion"
-primary_region = "iad"
+primary_region = "ams"
 
 [build]
 
@@ -19,4 +19,5 @@ primary_region = "iad"
   local_path = "./path2dream-9a1f361cc66c.json"
 
 [deploy]
-  max_machines_per_region = 1 
+  strategy = "immediate"
+  ha = false 
