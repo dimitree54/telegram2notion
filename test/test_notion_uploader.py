@@ -3,15 +3,15 @@ import unittest
 from pathlib import Path
 from dotenv import load_dotenv
 
-from document_storage import NotionDocumentsStorage
+from document_storage import NotionPageDocumentsStorage
 from file_storage import GoogleCloudStorage
 
 
 class TestNotionDocumentStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         load_dotenv()
-        file_storage = GoogleCloudStorage(Path(__file__).parents[1] / "google_drive_creds.json", "tg2notion")
-        self.doc_storage = NotionDocumentsStorage(os.environ["NOTION_TOKEN"], os.environ["NOTION_PARENT_DOCUMENT"], file_storage=file_storage)
+        file_storage = GoogleCloudStorage(Path(__file__).parents[1] / "path2dream-9a1f361cc66c.json", "yid-tg2notion")
+        self.doc_storage = NotionPageDocumentsStorage(os.environ["NOTION_TOKEN"], os.environ["NOTION_PARENT_DOCUMENT"], file_storage=file_storage)
 
     async def test_audio(self):
         await self.doc_storage.save_audio(audio_path=Path(__file__).parent / 'data' / "test.mp3", name="test_audio")

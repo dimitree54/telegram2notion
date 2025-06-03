@@ -9,7 +9,7 @@ from file_storage import GoogleCloudStorage
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         load_dotenv()
-        self.file_storage = GoogleCloudStorage(Path(__file__).parents[1] / "google_drive_creds.json", "tg2notion")
+        self.file_storage = GoogleCloudStorage(Path(__file__).parents[1] / "path2dream-9a1f361cc66c.json", "yid-tg2notion")
 
     async def test_audio(self):
         url = await self.file_storage.save_and_get_url(file_path=Path(__file__).parent / 'data' / "test.mp3")

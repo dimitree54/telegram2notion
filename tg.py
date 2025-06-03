@@ -1,8 +1,6 @@
 import tempfile
-import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from pydub import AudioSegment
 from telegram import Update
@@ -195,7 +193,7 @@ class TelegramBot:
         
         try:
             # Try to register the user
-            storage = self.storage_manager.register_user(user_id, database_id.strip())
+            self.storage_manager.register_user(user_id, database_id.strip())
             
             # Test the connection by trying to access the database
             # This is a simple validation - in real app you might want to do more thorough check
